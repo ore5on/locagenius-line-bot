@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir \
 # ── アプリコードをコピー ──
 COPY main.py .
 COPY system_prompt.txt .
+COPY yield_table.yaml .
 COPY core/ ./core/
 COPY modes/ ./modes/
 
