@@ -1,0 +1,22 @@
+# Render デプロイ設定ファイル
+# このファイルをGitHubにpushすると、Renderが自動で読み込む
+services:
+  - type: web
+    name: locagenius
+    runtime: docker
+    plan: starter        # $7/月 — スリープなし（LINE Webhookのタイムアウト対策）
+    healthCheckPath: /   # GET / でOKが返ればヘルシー
+
+    envVars:
+      # ── 以下の値はRenderのダッシュボードで設定（GitHubには上げない） ──
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LIBRARY_API_KEY
+        sync: false
+      # MCPサーバーのパス（Dockerfileのclone先に合わせてある）
+      - key: MCP_SERVER_PATH
+        value: mcp/mlit-geospatial-mcp/src/server.py

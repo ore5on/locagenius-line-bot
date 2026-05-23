@@ -1,0 +1,16 @@
+# 絶対にGitHubに上げてはいけないファイル
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# ログ
+*.log

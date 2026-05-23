@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不動産投資 立地調査ロボット システム設計書</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root {
+    --green-dark: #1A5C2A;
+    --green-mid: #2E7D32;
+    --green-light: #E8F5E9;
+    --blue-dark: #0D47A1;
+    --blue-light: #E3F2FD;
+    --amber: #F57F17;
+    --amber-light: #FFF8E1;
+    --gray-dark: #37474F;
+    --gray-mid: #78909C;
+    --gray-light: #ECEFF1;
+    --white: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic Pro', 'Yu Gothic', sans-serif;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--gray-dark);
+    background: #f5f5f5;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* ── COVER ── */
+  .cover {
+    background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-mid) 60%, #43A047 100%);
+    color: white;
+    padding: 80px 60px;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .cover h1 { font-size: 2.8em; font-weight: 700; margin-bottom: 10px; }
+  .cover .subtitle { font-size: 1.5em; opacity: 0.9; margin-bottom: 6px; }
+  .cover .tagline { font-size: 1.1em; opacity: 0.7; margin-bottom: 40px; }
+  .cover-meta { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 30px; }
+  .cover-card {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    padding: 14px 20px;
+    min-width: 160px;
+  }
+  .cover-card .label { font-size: 0.8em; opacity: 0.75; margin-bottom: 4px; }
+  .cover-card .value { font-size: 1.05em; font-weight: 700; }
+
+  /* ── HEADER ── */
+  .doc-header {
+    background: var(--green-dark);
+    color: white;
+    padding: 10px 30px;
+    font-size: 0.85em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ── CONTENT ── */
+  .content { padding: 40px 50px; }
+
+  /* ── TOC ── */
+  .toc { background: var(--gray-light); border-radius: 8px; padding: 24px 30px; margin-bottom: 40px; }
+  .toc h2 { color: var(--green-dark); font-size: 1.1em; margin-bottom: 16px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 6px; }
+  .toc a { color: var(--blue-dark); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── SECTION BANNER ── */
+  .section-banner {
+    background: var(--green-dark);
+    color: white;
+    padding: 12px 20px;
+    font-size: 1.15em;
+    font-weight: 700;
+    border-radius: 4px;
+    margin: 40px 0 20px;
+  }
+
+  /* ── HEADINGS ── */
+  h2 { color: var(--green-mid); font-size: 1.1em; margin: 28px 0 12px; padding-bottom: 4px; border-bottom: 2px solid var(--green-light); }
+  h3 { color: var(--gray-dark); font-size: 1em; margin: 20px 0 10px; font-weight: 700; }
+
+  /* ── PARAGRAPHS ── */
+  p { margin-bottom: 12px; }
+
+  /* ── TABLES ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 0.92em; }
+  th { background: var(--green-dark); color: white; padding: 9px 12px; text-align: left; font-weight: 600; }
+  td { padding: 8px 12px; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: var(--gray-light); }
+  tr:nth-child(odd) td { background: white; }
+  td:first-child { font-weight: 600; color: var(--green-dark); }
+
+  /* ── INFO BOXES ── */
+  .info-box {
+    border-left: 5px solid var(--green-mid);
+    background: var(--blue-light);
+    border-radius: 0 6px 6px 0;
+    padding: 16px 20px;
+    margin: 14px 0 20px;
+    white-space: pre-wrap;
+    font-size: 0.9em;
+    line-height: 1.6;
+    font-family: 'Courier New', 'Noto Sans JP', monospace;
+  }
+  .info-box.green { background: var(--green-light); border-color: var(--green-dark); }
+  .info-box.amber { background: var(--amber-light); border-color: var(--amber); }
+  .info-box .box-label { font-weight: 700; color: var(--green-dark); display: block; margin-bottom: 8px; font-family: 'Noto Sans JP', sans-serif; font-size: 1.05em; }
+
+  /* ── LISTS ── */
+  ul, ol { padding-left: 24px; margin-bottom: 14px; }
+  li { margin-bottom: 5px; }
+  ul li::marker { color: var(--green-mid); }
+
+  /* ── ARCH DIAGRAM ── */
+  .arch-diagram {
+    border: 2px solid var(--green-mid);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 14px 0 20px;
+  }
+  .arch-layer {
+    padding: 14px 24px;
+    border-bottom: 1px dashed #ccc;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .arch-layer:last-child { border-bottom: none; }
+  .arch-layer.user    { background: #F1F8E9; }
+  .arch-layer.backend { background: var(--blue-light); }
+  .arch-layer.mcp     { background: var(--amber-light); }
+  .arch-layer.data    { background: var(--green-light); }
+  .arch-badge {
+    background: var(--green-dark);
+    color: white;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 0.8em;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .arch-badge.blue   { background: var(--blue-dark); }
+  .arch-badge.amber  { background: var(--amber); }
+  .arch-arrow {
+    text-align: center;
+    color: var(--gray-mid);
+    font-size: 0.85em;
+    padding: 6px 0;
+    background: white;
+    border-bottom: 1px dashed #ccc;
+  }
+  .arch-arrow:last-child { border-bottom: none; }
+
+  /* ── PHASE CARDS ── */
+  .phase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 14px 0 20px; }
+  .phase-card {
+    border: 2px solid var(--green-mid);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .phase-header {
+    background: var(--green-dark);
+    color: white;
+    padding: 10px 14px;
+    font-weight: 700;
+  }
+  .phase-period { font-size: 0.8em; opacity: 0.8; margin-top: 2px; }
+  .phase-body { padding: 12px 14px; font-size: 0.88em; }
+  .phase-body li { margin-bottom: 4px; }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    background: var(--green-dark);
+    color: rgba(255,255,255,0.7);
+    padding: 12px 30px;
+    font-size: 0.8em;
+    text-align: center;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    .section-banner { page-break-before: always; }
+    .section-banner:first-of-type { page-break-before: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="tagline">MLIT 地理空間MCP Server × LINE Bot</div>
+    <h1>不動産投資 立地調査ロボット</h1>
+    <div class="subtitle">システム設計書 / 仕様書</div>
+    <div class="cover-meta">
+      <div class="cover-card"><div class="label">バージョン</div><div class="value">v1.0（初版）</div></div>
+      <div class="cover-card"><div class="label">作成日</div><div class="value">2026年5月</div></div>
+      <div class="cover-card"><div class="label">データソース</div><div class="value">国土交通省 不動産情報ライブラリ</div></div>
+      <div class="cover-card"><div class="label">インターフェース</div><div class="value">LINE Messaging API</div></div>
+    </div>
+  </div>
+
+  <div class="doc-header">
+    <span>不動産投資 立地調査ロボット 設計書</span>
+    <span>MLIT 地理空間MCP × LINE Bot</span>
+  </div>
+
+  <div class="content">
+
+    <!-- TOC -->
+    <div class="toc">
+      <h2>📋 目次</h2>
+      <ol>
+        <li><a href="#s1">システム概要</a></li>
+        <li><a href="#s2">アーキテクチャ設計</a></li>
+        <li><a href="#s3">データフローと処理シーケンス</a></li>
+        <li><a href="#s4">調査項目定義（利用するMCP APIリスト）</a></li>
+        <li><a href="#s5">LINEインターフェース設計</a></li>
+        <li><a href="#s6">AIシステムプロンプト設計</a></li>
+        <li><a href="#s7">開発仕様・技術スタック</a></li>
+        <li><a href="#s8">セキュリティ・コンプライアンス</a></li>
+        <li><a href="#s9">事前準備：APIキー取得手順</a></li>
+        <li><a href="#s10">開発ロードマップ</a></li>
+        <li><a href="#s11">月間コスト試算</a></li>
+        <li><a href="#s12">付録：参考リンク集</a></li>
+      </ol>
+    </div>
+
+    <!-- ===== 1. システム概要 ===== -->
+    <div class="section-banner" id="s1">1. システム概要</div>
+
+    <h2>1.1 プロジェクト概要</h2>
+    <p>本システムは、不動産投資家が物件候補地の立地調査を <strong>LINE チャット上で完結</strong>できるようにする AIロボットです。ユーザーが住所や地名をメッセージで送信するだけで、Claude AI が国土交通省の地理空間 MCP サーバー（MLIT Geospatial MCP Server）を通じて政府公開データを自動収集・分析し、投資判断に必要な立地レポートを返却します。</p>
+
+    <h2>1.2 解決する課題</h2>
+    <ul>
+      <li>立地調査に必要なデータが複数のWebサイトに散在しており、収集に多大な時間がかかる</li>
+      <li>ハザード情報・都市計画・地価・周辺施設を横断的に確認するのが困難</li>
+      <li>専門知識がなくても投資リスクを定量的に把握できる手段が少ない</li>
+      <li>LINE という使い慣れたインターフェースで完結できれば操作コストが最小化できる</li>
+    </ul>
+
+    <h2>1.3 システムが提供する価値</h2>
+    <table>
+      <tr><th>価値項目</th><th>説明</th></tr>
+      <tr><td>スピード</td><td>従来数時間かかる立地調査を数分で完了</td></tr>
+      <tr><td>網羅性</td><td>価格・ハザード・施設・法規制・人口を一括取得（30種類のAPI）</td></tr>
+      <tr><td>使いやすさ</td><td>LINEで自然言語のチャット操作のみ。専門知識不要</td></tr>
+      <tr><td>信頼性</td><td>国土交通省公式データを直接利用。出典明確</td></tr>
+      <tr><td>拡張性</td><td>調査項目や出力形式を柔軟に追加可能</td></tr>
+    </table>
+
+    <h2>1.4 対象ユーザー</h2>
+    <ul>
+      <li>個人不動産投資家（区分マンション・戸建て・土地）</li>
+      <li>不動産仲介会社のエージェント</li>
+      <li>不動産ファンド・REITの調査担当者</li>
+      <li>地方移住・土地活用を検討している一般ユーザー</li>
+    </ul>
+
+    <!-- ===== 2. アーキテクチャ ===== -->
+    <div class="section-banner" id="s2">2. アーキテクチャ設計</div>
+
+    <h2>2.1 全体構成（4レイヤー）</h2>
+
+    <div class="arch-diagram">
+      <div class="arch-layer user">
+        <span class="arch-badge">ユーザー層</span>
+        <span><strong>LINE アプリ</strong>（スマートフォン / PC）— 自然言語テキストで操作</span>
+      </div>
+      <div class="arch-arrow">↕&nbsp; LINE Messaging API（Webhook / HTTPS）</div>
+      <div class="arch-layer backend">
+        <span class="arch-badge blue">バックエンド層</span>
+        <span><strong>FastAPI（Python）</strong> on AWS / GCP &nbsp;←→&nbsp; <strong>Claude API</strong>（claude-sonnet-4-6）</span>
+      </div>
+      <div class="arch-arrow">↕&nbsp; MCP プロトコル（stdio / subprocess）</div>
+      <div class="arch-layer mcp">
+        <span class="arch-badge amber">MCP サーバー層</span>
+        <span><strong>MLIT Geospatial MCP Server</strong>（Python）— 30種類のツールを提供</span>
+      </div>
+      <div class="arch-arrow">↕&nbsp; HTTPS REST API</div>
+      <div class="arch-layer data">
+        <span class="arch-badge">データ層</span>
+        <span><strong>不動産情報ライブラリ API</strong>（国土交通省）— 政府公式 地理空間データ</span>
+      </div>
+    </div>
+
+    <h2>2.2 コンポーネント説明</h2>
+    <table>
+      <tr><th>コンポーネント</th><th>役割</th></tr>
+      <tr><td>LINE Messaging API</td><td>ユーザーのメッセージ受信・返信。Webhookでバックエンドに転送</td></tr>
+      <tr><td>FastAPI サーバー</td><td>Webhookを受け取り、Claude APIを呼び出し、結果をLINEへ返却</td></tr>
+      <tr><td>Claude API</td><td>自然言語理解・推論・レポート生成。MCPクライアントとして動作</td></tr>
+      <tr><td>MLIT MCP Server</td><td>不動産情報ライブラリAPIを30種類のツールで統合提供するMCPサーバー</td></tr>
+      <tr><td>不動産情報ライブラリ</td><td>国交省が公開する公式不動産・地理空間データ（無償・要API申請）</td></tr>
+      <tr><td>Redis（セッションDB）</td><td>ユーザーごとの会話履歴・前回調査地点を管理</td></tr>
+    </table>
+
+    <h2>2.3 クラウドデプロイ構成</h2>
+    <h3>AWS 構成案</h3>
+    <table>
+      <tr><th>AWSサービス</th><th>用途</th></tr>
+      <tr><td>API Gateway + Lambda</td><td>LINE WebhookのHTTPSエンドポイント受け口（サーバーレス）</td></tr>
+      <tr><td>ECS / Fargate</td><td>FastAPIコンテナ＋MCPサーバープロセスを同一タスクで実行</td></tr>
+      <tr><td>ElastiCache (Redis)</td><td>会話セッション・調査結果キャッシュ</td></tr>
+      <tr><td>Secrets Manager</td><td>APIキー（LINE / Claude / 不動産情報ライブラリ）の安全な管理</td></tr>
+      <tr><td>CloudWatch</td><td>ログ収集・アラート・コスト監視</td></tr>
+      <tr><td>S3</td><td>生成レポートのPDF/CSV保存（オプション）</td></tr>
+    </table>
+    <h3>GCP 構成案</h3>
+    <table>
+      <tr><th>GCPサービス</th><th>用途</th></tr>
+      <tr><td>Cloud Run</td><td>FastAPI＋MCPサーバーのコンテナをオートスケール実行</td></tr>
+      <tr><td>Cloud Memorystore (Redis)</td><td>会話セッション管理</td></tr>
+      <tr><td>Secret Manager</td><td>APIキー管理</td></tr>
+      <tr><td>Cloud Logging</td><td>ログ・モニタリング</td></tr>
+      <tr><td>Cloud Storage</td><td>レポートファイル保存（オプション）</td></tr>
+    </table>
+
+    <!-- ===== 3. データフロー ===== -->
+    <div class="section-banner" id="s3">3. データフローと処理シーケンス</div>
+
+    <h2>3.1 基本シーケンス</h2>
+    <table>
+      <tr><th>Step</th><th>処理</th><th>詳細</th></tr>
+      <tr><td>Step 1</td><td>メッセージ受信</td><td>ユーザーがLINEで「東京都港区六本木の立地調査をして」と送信</td></tr>
+      <tr><td>Step 2</td><td>Webhook 転送</td><td>LINE Messaging API がバックエンドのWebhookエンドポイントにPOST</td></tr>
+      <tr><td>Step 3</td><td>処理キュー</td><td>FastAPIがリクエストを受け取り、非同期タスクとしてキューに積む（タイムアウト回避）。ユーザーに「調査中...」メッセージを即時送信</td></tr>
+      <tr><td>Step 4</td><td>Claude API 呼び出し</td><td>会話履歴＋システムプロンプトとともにClaude APIをストリーミング呼び出し</td></tr>
+      <tr><td>Step 5</td><td>MCP ツール選択</td><td>Claude が住所から緯度経度を解析し、必要なMCPツール群を自律的に選択・実行</td></tr>
+      <tr><td>Step 6</td><td>API 並列呼び出し</td><td>MCPサーバーが不動産情報ライブラリの複数APIを並列リクエスト</td></tr>
+      <tr><td>Step 7</td><td>データ統合</td><td>取得した地価・ハザード・施設・法規制・人口データをClaudeが統合分析</td></tr>
+      <tr><td>Step 8</td><td>レポート生成</td><td>構造化されたテキストレポートをClaudeが日本語で生成</td></tr>
+      <tr><td>Step 9</td><td>LINE 返信</td><td>FastAPIがLINE Messaging APIを通じてユーザーに返信（Flex Message形式）</td></tr>
+    </table>
+
+    <h2>3.2 住所→緯度経度変換（ジオコーディング）</h2>
+    <p>不動産情報ライブラリ APIは緯度経度を入力として受け取るため、住所文字列をまず座標に変換する必要があります。</p>
+    <table>
+      <tr><th>優先度</th><th>ジオコーディングサービス</th><th>特徴</th></tr>
+      <tr><td>第1候補（推奨）</td><td>国土地理院 住所検索API</td><td>無償・国産・申請不要。国内住所に特化</td></tr>
+      <tr><td>第2候補</td><td>Google Geocoding API</td><td>高精度だが有償（月$200 無料枠あり）</td></tr>
+      <tr><td>第3候補</td><td>OpenStreetMap Nominatim</td><td>無償・オープン。利用制限あり（1req/sec以下）</td></tr>
+    </table>
+
+    <h2>3.3 エラー処理</h2>
+    <ul>
+      <li><strong>API タイムアウト（30秒）</strong>：ユーザーに処理中メッセージを送り、完了後に追送</li>
+      <li><strong>住所解析失敗</strong>：より具体的な住所の入力を案内するメッセージを返却</li>
+      <li><strong>APIレート制限</strong>：指数バックオフでリトライ（最大3回）</li>
+      <li><strong>データ未取得</strong>：「この地点ではデータが存在しない可能性があります」と明示</li>
+      <li><strong>Claude APIエラー</strong>：フォールバックメッセージと再試行の案内</li>
+    </ul>
+
+    <!-- ===== 4. 調査項目 ===== -->
+    <div class="section-banner" id="s4">4. 調査項目定義（利用するMCP APIリスト）</div>
+
+    <h2>4.1 💰 価格・地価情報</h2>
+    <table>
+      <tr><th>項目名</th><th>利用API</th><th>取得内容</th></tr>
+      <tr><td>取引価格情報</td><td>不動産価格（取引価格・成約価格）情報取得API</td><td>近隣の実際の成約価格・取引件数・㎡単価の推移</td></tr>
+      <tr><td>地価公示</td><td>地価公示・地価調査のポイントAPI</td><td>最新の公示地価・基準地価（点データ）</td></tr>
+      <tr><td>鑑定評価</td><td>鑑定評価書情報API</td><td>不動産鑑定士による評価書情報</td></tr>
+    </table>
+
+    <h2>4.2 ⚠️ ハザード・防災情報（投資リスク最重要カテゴリ）</h2>
+    <table>
+      <tr><th>ハザード種別</th><th>利用API</th><th>取得内容</th></tr>
+      <tr><td>洪水リスク</td><td>国土数値情報（洪水浸水想定区域（想定最大規模））API</td><td>浸水深・浸水継続時間の想定値</td></tr>
+      <tr><td>高潮リスク</td><td>国土数値情報（高潮浸水想定区域）API</td><td>台風等による高潮浸水の想定範囲</td></tr>
+      <tr><td>津波リスク</td><td>国土数値情報（津波浸水想定）API</td><td>最大クラスの津波による浸水深想定</td></tr>
+      <tr><td>土砂災害</td><td>国土数値情報（土砂災害警戒区域）API</td><td>土砂災害警戒区域・特別警戒区域の判定</td></tr>
+      <tr><td>急傾斜地</td><td>国土数値情報（急傾斜地崩壊危険区域）API</td><td>急傾斜地崩壊危険区域の該当有無</td></tr>
+      <tr><td>地すべり</td><td>国土数値情報（地すべり防止地区）API</td><td>地すべり防止地区の指定有無</td></tr>
+      <tr><td>液状化</td><td>国土交通省都市局（地形区分に基づく液状化の発生傾向図）API</td><td>液状化リスクの発生傾向（大・中・小・なし）</td></tr>
+      <tr><td>災害危険区域</td><td>国土数値情報（災害危険区域）API</td><td>建築制限がかかる災害危険区域の指定</td></tr>
+      <tr><td>盛土リスク</td><td>国土数値情報（大規模盛土造成地マップ）API</td><td>大規模盛土造成地の該当有無（液状化リスク）</td></tr>
+    </table>
+
+    <h2>4.3 🏫 周辺施設・生活利便性</h2>
+    <table>
+      <tr><th>施設種別</th><th>利用API</th><th>取得内容</th></tr>
+      <tr><td>小学校区</td><td>国土数値情報（小学校区）API</td><td>最寄り小学校・学区情報</td></tr>
+      <tr><td>中学校区</td><td>国土数値情報（中学校区）API</td><td>最寄り中学校・学区情報</td></tr>
+      <tr><td>学校施設</td><td>国土数値情報（学校）API</td><td>周辺の学校施設一覧と距離</td></tr>
+      <tr><td>保育・幼稚園</td><td>国土数値情報（保育園・幼稚園等）API</td><td>周辺の保育・教育施設一覧</td></tr>
+      <tr><td>医療機関</td><td>国土数値情報（医療機関）API</td><td>病院・診療所の分布状況</td></tr>
+      <tr><td>福祉施設</td><td>国土数値情報（福祉施設）API</td><td>高齢者施設・障害者施設等の分布</td></tr>
+      <tr><td>図書館</td><td>国土数値情報（図書館）API</td><td>公共図書館の有無と距離</td></tr>
+      <tr><td>駅・乗降客数</td><td>国土数値情報（駅別乗降客数）API</td><td>最寄り駅と年間乗降客数（賃貸需要指標）</td></tr>
+      <tr><td>市区町村役場等</td><td>国土数値情報（市区町村役場及び集会施設等）API</td><td>行政窓口・公共施設の距離</td></tr>
+    </table>
+
+    <h2>4.4 🏛️ 都市計画・法規制情報</h2>
+    <table>
+      <tr><th>規制種別</th><th>利用API</th><th>取得内容</th></tr>
+      <tr><td>用途地域</td><td>都市計画決定GISデータ（用途地域）API</td><td>第一種住居・商業・工業等の用途地域種別</td></tr>
+      <tr><td>都市計画区域</td><td>都市計画決定GISデータ（都市計画区域・区域区分）API</td><td>市街化区域/調整区域の判定</td></tr>
+      <tr><td>防火地域</td><td>都市計画決定GISデータ（防火・準防火地域）API</td><td>防火・準防火地域の指定有無</td></tr>
+      <tr><td>立地適正化</td><td>都市計画決定GISデータ（立地適正化計画）API</td><td>居住誘導区域・都市機能誘導区域</td></tr>
+      <tr><td>地区計画</td><td>都市計画決定GISデータ（地区計画）API</td><td>地区計画による詳細規制内容</td></tr>
+      <tr><td>高度利用地区</td><td>都市計画決定GISデータ（高度利用地区）API</td><td>容積率の最低限度・高度利用制限</td></tr>
+      <tr><td>自然公園</td><td>国土数値情報（自然公園地域）API</td><td>国立・国定公園等の指定有無（開発制限）</td></tr>
+    </table>
+
+    <h2>4.5 👥 人口動態・市場性</h2>
+    <table>
+      <tr><th>項目</th><th>利用API</th><th>取得内容</th></tr>
+      <tr><td>将来推計人口</td><td>国土数値情報（将来推計人口250mメッシュ）API</td><td>2030/2040/2050年の人口推計値（250mメッシュ）</td></tr>
+      <tr><td>人口集中地区</td><td>国土数値情報（人口集中地区）API</td><td>DID（人口集中地区）の指定状況</td></tr>
+    </table>
+
+    <!-- ===== 5. LINE I/F ===== -->
+    <div class="section-banner" id="s5">5. LINEインターフェース設計</div>
+
+    <h2>5.1 基本操作フロー</h2>
+    <ol>
+      <li>LINE でBotを「友だち追加」</li>
+      <li>あいさつメッセージと操作ガイドが表示される</li>
+      <li>調査したい住所・地名をテキストで送信（例：「東京都渋谷区恵比寿1-1-1の立地を調査して」）</li>
+      <li>「調査中です...少々お待ちください」の中間メッセージが届く（即時返信）</li>
+      <li>15〜60秒後に構造化された立地レポートが返信される</li>
+      <li>「詳細を見る」「地図を見る」「別の場所を調査する」のクイックリプライが表示される</li>
+    </ol>
+
+    <h2>5.2 コマンド仕様</h2>
+    <table>
+      <tr><th>コマンド</th><th>動作</th></tr>
+      <tr><td>（住所/地名のテキスト）</td><td>その場所の立地調査を実行。自由文でOK（例：「渋谷駅周辺を調べて」）</td></tr>
+      <tr><td>/help</td><td>操作方法・利用可能なコマンド一覧を表示</td></tr>
+      <tr><td>/menu</td><td>調査メニュー（クイック調査 / 詳細調査 / 比較調査）をボタンで表示</td></tr>
+      <tr><td>/quick [住所]</td><td>主要5項目のみ素早く調査（地価・ハザード・最寄り駅・用途地域・将来人口）</td></tr>
+      <tr><td>/detail [住所]</td><td>全カテゴリの詳細調査（全30API項目）</td></tr>
+      <tr><td>/compare [住所A] vs [住所B]</td><td>2地点の立地を比較分析</td></tr>
+      <tr><td>/history</td><td>直近5件の調査履歴を表示</td></tr>
+      <tr><td>/reset</td><td>会話をリセット（セッションクリア）</td></tr>
+    </table>
+
+    <h2>5.3 返信メッセージフォーマット（LINE Flex Message）</h2>
+    <div class="info-box green"><span class="box-label">📍 立地調査レポートの構成例</span>📍 調査地点：東京都港区六本木X-X-X
+━━━━━━━━━━━━━━━━━━
+💰 地価・価格情報
+  • 公示地価：約2,100,000円/㎡（2025年）
+  • 近隣取引価格：マンション 約1,800万〜3,500万円
+━━━━━━━━━━━━━━━━━━
+⚠️ ハザード総合評価：低リスク ✅
+  • 洪水：該当なし ✅  津波：該当なし ✅
+  • 液状化：発生傾向「小」 ✅
+━━━━━━━━━━━━━━━━━━
+🏫 生活利便性：★★★★★
+  • 最寄り駅：六本木駅（日比谷線）徒歩3分
+  • 年間乗降客数：約2,920万人
+  • 小学校区：港区立六本木小学校
+━━━━━━━━━━━━━━━━━━
+🏛️ 法規制：商業地域 / 防火地域指定
+━━━━━━━━━━━━━━━━━━
+👥 人口動態：2040年予測 現状比 -5%（都心部は横ばい傾向）
+━━━━━━━━━━━━━━━━━━
+🤖 AIコメント：利便性・資産性ともに高水準の立地です。
+ハザードリスクは低く、商業地域のため開発ポテンシャルも高い。
+将来人口はやや減少傾向ですが、都心優良立地として需要は安定見込み。</div>
+
+    <h2>5.4 クイックリプライ設計</h2>
+    <table>
+      <tr><th>ボタンラベル</th><th>動作</th></tr>
+      <tr><td>📄 詳細レポート</td><td>より詳細なデータをテキストで表示</td></tr>
+      <tr><td>🗺️ 地図を見る</td><td>不動産情報ライブラリの地図URLを開く</td></tr>
+      <tr><td>📊 他と比較する</td><td>別の地点との比較調査を開始</td></tr>
+      <tr><td>💾 PDFで保存</td><td>レポートをPDFに変換してダウンロードURL送信（Phase 3）</td></tr>
+      <tr><td>🔄 再調査する</td><td>同じ地点のデータを最新情報で再取得</td></tr>
+    </table>
+
+    <!-- ===== 6. プロンプト ===== -->
+    <div class="section-banner" id="s6">6. AIシステムプロンプト設計</div>
+
+    <h2>6.1 Claude へのシステムプロンプト</h2>
+    <div class="info-box amber"><span class="box-label">システムプロンプト（draft）</span>あなたは「立地調査ロボット」です。不動産投資家が物件候補地の立地を評価するために、
+国土交通省の不動産情報ライブラリAPIを活用して調査を行います。
+
+【役割と行動指針】
+1. ユーザーが送信した住所・地名から緯度経度を推定し、必要なAPIツールを自律的に
+   選択して実行すること。
+2. 取得したデータを投資家の視点で分析し、「リスク」と「魅力」を明確に整理すること。
+3. 数値データは具体的に引用し、根拠を明示すること。
+4. 返答はLINEのメッセージとして読みやすいよう、絵文字と区切り線を効果的に使うこと。
+5. 投資判断に直結するポイント（ハザードリスク・地価水準・将来人口）は必ず含めること。
+6. 不確実な情報については「データが存在しない可能性があります」と正直に伝えること。
+
+【調査カテゴリ優先順位（ユーザー指定）】
+高優先: 価格・地価情報 / ハザード情報 / 周辺施設・利便性 / 都市計画・法規制 / 人口動態
+
+【出力フォーマット】
+必ず以下のセクションを含めること：
+📍 調査地点の確認
+💰 地価・価格情報
+⚠️ ハザード総合評価（リスクレベル：高/中/低）
+🏫 生活利便性
+🏛️ 法規制・都市計画
+👥 人口動態
+🤖 AIコメント（総合的な投資判断コメント）</div>
+
+    <h2>6.2 会話管理設計</h2>
+    <table>
+      <tr><th>機能</th><th>詳細</th></tr>
+      <tr><td>コンテキスト保持</td><td>直近10往復の会話履歴をRedisに保存し、フォローアップ質問に対応</td></tr>
+      <tr><td>マルチターン調査</td><td>「駅徒歩圏内に絞って」「ハザード情報だけ詳しく」等の追加質問に対応</td></tr>
+      <tr><td>地点記憶</td><td>「さっきの場所と比べて」などの相対的な質問に対応するため調査地点を保存</td></tr>
+      <tr><td>タイムアウト</td><td>セッションは最終操作から30分で自動終了（コスト管理）</td></tr>
+    </table>
+
+    <!-- ===== 7. 技術スタック ===== -->
+    <div class="section-banner" id="s7">7. 開発仕様・技術スタック</div>
+
+    <h2>7.1 バックエンド技術スタック</h2>
+    <table>
+      <tr><th>項目</th><th>技術選定</th></tr>
+      <tr><td>言語</td><td>Python 3.11+</td></tr>
+      <tr><td>Webフレームワーク</td><td>FastAPI（非同期処理・型安全・高パフォーマンス）</td></tr>
+      <tr><td>Claude SDK</td><td>anthropic Python SDK（MCPクライアント機能含む）</td></tr>
+      <tr><td>MCPサーバー</td><td>MLIT Geospatial MCP Server（Pythonプロセス、stdio通信）</td></tr>
+      <tr><td>LINE SDK</td><td>line-bot-sdk-python v3</td></tr>
+      <tr><td>セッション管理</td><td>Redis（ElastiCache / Memorystore）</td></tr>
+      <tr><td>ジオコーディング</td><td>国土地理院API または geopy</td></tr>
+      <tr><td>コンテナ</td><td>Docker（マルチステージビルド）</td></tr>
+      <tr><td>CI/CD</td><td>GitHub Actions</td></tr>
+      <tr><td>監視</td><td>CloudWatch / Cloud Logging + Sentry（エラートラッキング）</td></tr>
+    </table>
+
+    <h2>7.2 プロジェクト構成</h2>
+    <div class="info-box"><span class="box-label">ディレクトリ構成</span>locagenius/
+├── app/
+│   ├── main.py              # FastAPI エントリーポイント
+│   ├── webhook.py           # LINE Webhook ハンドラ
+│   ├── claude_client.py     # Claude API + MCP クライアント
+│   ├── geocoder.py          # 住所→緯度経度変換
+│   ├── session.py           # Redis セッション管理
+│   ├── line_reply.py        # LINE Flex Message 生成
+│   └── prompts.py           # システムプロンプト定義
+├── mcp/
+│   └── mlit-geospatial-mcp/ # git submodule（MCPサーバー）
+├── tests/
+│   ├── test_webhook.py
+│   └── test_claude_client.py
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md</div>
+
+    <h2>7.3 主要な環境変数</h2>
+    <table>
+      <tr><th>環境変数名</th><th>内容</th></tr>
+      <tr><td>LINE_CHANNEL_SECRET</td><td>LINE Messaging APIのチャンネルシークレット</td></tr>
+      <tr><td>LINE_CHANNEL_ACCESS_TOKEN</td><td>LINE Messaging APIのアクセストークン</td></tr>
+      <tr><td>ANTHROPIC_API_KEY</td><td>Claude API キー</td></tr>
+      <tr><td>LIBRARY_API_KEY</td><td>不動産情報ライブラリ APIキー</td></tr>
+      <tr><td>REDIS_URL</td><td>Redisの接続URL</td></tr>
+      <tr><td>GEOCODING_API_KEY</td><td>ジオコーディングAPIキー（Google等）</td></tr>
+      <tr><td>LOG_LEVEL</td><td>ログレベル（INFO / WARNING / DEBUG）</td></tr>
+      <tr><td>MAX_SESSION_MINUTES</td><td>セッションタイムアウト時間（デフォルト: 30）</td></tr>
+    </table>
+
+    <!-- ===== 8. セキュリティ ===== -->
+    <div class="section-banner" id="s8">8. セキュリティ・コンプライアンス</div>
+
+    <h2>8.1 セキュリティ対策</h2>
+    <table>
+      <tr><th>対策項目</th><th>内容</th></tr>
+      <tr><td>Webhook署名検証</td><td>LINE からのリクエストは X-Line-Signature ヘッダーを HMAC-SHA256 で検証</td></tr>
+      <tr><td>APIキー管理</td><td>全APIキーはクラウドのSecret Managerで管理。コードへの直書き禁止</td></tr>
+      <tr><td>HTTPS強制</td><td>全通信をTLS 1.2以上で暗号化</td></tr>
+      <tr><td>レート制限</td><td>ユーザーごとに1分10回・1日100回の上限設定でコスト暴走防止</td></tr>
+      <tr><td>入力バリデーション</td><td>住所文字列の長さ・文字種チェック</td></tr>
+      <tr><td>ログ管理</td><td>ユーザーIDは匿名化してログ保存。住所テキストは90日で自動削除</td></tr>
+    </table>
+
+    <h2>8.2 不動産情報ライブラリ利用規約の遵守</h2>
+    <div class="info-box amber"><span class="box-label">⚠️ 重要：利用時の必須確認事項</span>本システムは国土交通省「不動産情報ライブラリ」のAPIを利用します。
+利用開始前に以下を必ず確認・遵守してください：
+
+1. 利用申請：https://www.reinfolib.mlit.go.jp/api/request/ から事前申請が必須
+2. 利用約款：不動産情報ライブラリの利用約款に従う（利用前に必ず確認）
+3. 商用利用：利用規約に基づく商用利用の可否を確認
+4. データの再配布：APIで取得したデータの二次配布・販売は規約に従う
+5. 免責：本APIはα版につき動作保証なし。本番運用はAPIの安定性を確認後に実施</div>
+
+    <!-- ===== 9. APIキー ===== -->
+    <div class="section-banner" id="s9">9. 事前準備：APIキー取得手順</div>
+
+    <h2>9.1 不動産情報ライブラリ APIキー（最優先）</h2>
+    <ol>
+      <li><a href="https://www.reinfolib.mlit.go.jp/api/request/" target="_blank">https://www.reinfolib.mlit.go.jp/api/request/</a> にアクセス</li>
+      <li>利用者種別（法人 / 法人以外の団体 / 個人）を選択</li>
+      <li>担当者氏名・メールアドレスを入力して申請送信</li>
+      <li>審査後（数日〜1週間程度）にメールでAPIキーが送付される</li>
+      <li>取得したキーを <code>LIBRARY_API_KEY</code> として環境変数に設定</li>
+    </ol>
+
+    <h2>9.2 LINE Messaging API</h2>
+    <ol>
+      <li><a href="https://developers.line.biz/" target="_blank">LINE Developers</a>（https://developers.line.biz/）にログイン</li>
+      <li>プロバイダーを作成（または既存のものを選択）</li>
+      <li>新規チャンネル → Messaging API を選択</li>
+      <li>チャンネル設定から「チャンネルシークレット」と「チャンネルアクセストークン」を取得</li>
+      <li>Webhook URLにデプロイ済みエンドポイントを設定（例：https://your-domain.com/webhook）</li>
+      <li>「Webhookの利用」をオンにし、「接続確認」でOKを確認</li>
+    </ol>
+
+    <h2>9.3 Claude API（Anthropic）</h2>
+    <ol>
+      <li><a href="https://console.anthropic.com/" target="_blank">https://console.anthropic.com/</a> にアクセス</li>
+      <li>アカウントを作成またはログイン</li>
+      <li>「API Keys」セクションから新規キーを発行</li>
+      <li>取得したキーを <code>ANTHROPIC_API_KEY</code> として環境変数に設定</li>
+      <li>利用モデル：<strong>claude-sonnet-4-6</strong>（推奨。コスト効率と性能のバランスが良い）</li>
+    </ol>
+
+    <h2>9.4 ジオコーディングAPI（住所→座標変換）</h2>
+    <table>
+      <tr><th>サービス</th><th>推奨度</th><th>特徴・取得先</th></tr>
+      <tr><td>国土地理院API</td><td>★★★（推奨）</td><td>無償。国内住所に特化。申請不要でそのまま利用可能</td></tr>
+      <tr><td>Google Geocoding API</td><td>★★</td><td>高精度だが有償（月$200 無料枠あり）。Google Cloud Consoleでキー取得</td></tr>
+      <tr><td>Nominatim（OSM）</td><td>★</td><td>無償・オープン。利用制限あり（1req/sec以下）。小規模向け</td></tr>
+    </table>
+
+    <!-- ===== 10. ロードマップ ===== -->
+    <div class="section-banner" id="s10">10. 開発ロードマップ</div>
+
+    <h2>10.1 フェーズ計画</h2>
+    <div class="phase-grid">
+      <div class="phase-card">
+        <div class="phase-header">
+          Phase 1（MVP）
+          <div class="phase-period">期間目安：2〜3週間</div>
+        </div>
+        <div class="phase-body">
+          <ul>
+            <li>LINEBot基盤構築（Webhook受信・返信）</li>
+            <li>Claude + MLIT MCPサーバー連携</li>
+            <li>住所→緯度経度変換</li>
+            <li>クイック調査（ハザード・地価・用途地域）</li>
+            <li>テキストベースの返答</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-header">
+          Phase 2（強化）
+          <div class="phase-period">期間目安：3〜4週間</div>
+        </div>
+        <div class="phase-body">
+          <ul>
+            <li>全30API対応（詳細調査モード）</li>
+            <li>Flex Messageリッチ返答</li>
+            <li>セッション管理（Redis）</li>
+            <li>マルチターン会話対応</li>
+            <li>2地点比較機能</li>
+          </ul>
+        </div>
+      </div>
+      <div class="phase-card">
+        <div class="phase-header">
+          Phase 3（拡張）
+          <div class="phase-period">期間目安：4〜6週間</div>
+        </div>
+        <div class="phase-body">
+          <ul>
+            <li>PDFレポート自動生成・保存</li>
+            <li>調査履歴機能</li>
+            <li>地価変動アラート通知</li>
+            <li>Webダッシュボード連携</li>
+            <li>AIスコアリング（総合評点）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <h2>10.2 MVP（最小実行版）の優先タスク</h2>
+    <ol>
+      <li>MLIT MCPサーバーを git clone してローカルで動作確認</li>
+      <li>不動産情報ライブラリ APIキーの取得申請（審査に時間がかかるため最優先）</li>
+      <li>LINE Messaging API の設定（チャンネル作成・Webhook URL設定）</li>
+      <li>Anthropic Claude APIキーの取得</li>
+      <li>FastAPI + LINE SDK の基本Webhookサーバー構築</li>
+      <li>Claude APIとMCPサーバーの接続テスト（数件の住所で動作確認）</li>
+      <li>クラウド（AWS Lambda or Cloud Run）へのデプロイ</li>
+      <li>LINEBot の友達追加〜調査完了の E2Eテスト</li>
+    </ol>
+
+    <!-- ===== 11. コスト ===== -->
+    <div class="section-banner" id="s11">11. 月間コスト試算</div>
+    <p>月間調査件数を100件と仮定した概算コストです（2026年5月時点の料金体系に基づく目安）。</p>
+
+    <table>
+      <tr><th>サービス</th><th>条件</th><th>月額コスト概算</th></tr>
+      <tr><td>Claude API</td><td>claude-sonnet-4-6 / 調査1件≒10K tokens</td><td>約$5〜15 / 月（100件）</td></tr>
+      <tr><td>LINE Messaging API</td><td>月1,000通まで無料</td><td>無料（スタートプラン内）</td></tr>
+      <tr><td>不動産情報ライブラリ</td><td>現時点では無償</td><td>無料</td></tr>
+      <tr><td>AWS Fargate / Cloud Run</td><td>常時稼働の場合</td><td>約$20〜50 / 月</td></tr>
+      <tr><td>Redis（ElastiCache等）</td><td>最小インスタンス</td><td>約$15〜25 / 月</td></tr>
+      <tr><td>ジオコーディング（国土地理院）</td><td>無償API使用</td><td>無料</td></tr>
+      <tr><td><strong>合計（概算）</strong></td><td>100件調査 / 月</td><td><strong>約$40〜90 / 月</strong></td></tr>
+    </table>
+
+    <div class="info-box green"><span class="box-label">💡 コスト最適化のポイント</span>・調査結果を24時間キャッシュすることで同一地点の重複API呼び出しを削減
+・MCPツールの呼び出し順序を最適化（まず軽量な地価・用途地域 → 必要な場合のみ全データ取得）
+・Claude のモデルは claude-haiku-4-5 を試すことで呼び出しコストを大幅削減できる
+・Lambda / Cloud Run のコールドスタートに注意（ウォームアップ設定推奨）</div>
+
+    <!-- ===== 12. 付録 ===== -->
+    <div class="section-banner" id="s12">付録：参考リンク集</div>
+    <table>
+      <tr><th>リソース</th><th>URL</th></tr>
+      <tr><td>不動産情報ライブラリ</td><td><a href="https://www.reinfolib.mlit.go.jp/" target="_blank">https://www.reinfolib.mlit.go.jp/</a></td></tr>
+      <tr><td>MLIT MCP Server GitHub</td><td><a href="https://github.com/chirikuuka/mlit-geospatial-mcp" target="_blank">https://github.com/chirikuuka/mlit-geospatial-mcp</a></td></tr>
+      <tr><td>不動産情報ライブラリ API申請</td><td><a href="https://www.reinfolib.mlit.go.jp/api/request/" target="_blank">https://www.reinfolib.mlit.go.jp/api/request/</a></td></tr>
+      <tr><td>LINE Developers</td><td><a href="https://developers.line.biz/ja/" target="_blank">https://developers.line.biz/ja/</a></td></tr>
+      <tr><td>Anthropic Console（Claude API）</td><td><a href="https://console.anthropic.com/" target="_blank">https://console.anthropic.com/</a></td></tr>
+      <tr><td>国土地理院 地図タイル・API</td><td><a href="https://maps.gsi.go.jp/development/" target="_blank">https://maps.gsi.go.jp/development/</a></td></tr>
+      <tr><td>Python MCP SDK（Anthropic）</td><td><a href="https://github.com/modelcontextprotocol/python-sdk" target="_blank">https://github.com/modelcontextprotocol/python-sdk</a></td></tr>
+      <tr><td>FastAPI 公式ドキュメント</td><td><a href="https://fastapi.tiangolo.com/" target="_blank">https://fastapi.tiangolo.com/</a></td></tr>
+      <tr><td>line-bot-sdk-python</td><td><a href="https://github.com/line/line-bot-sdk-python" target="_blank">https://github.com/line/line-bot-sdk-python</a></td></tr>
+    </table>
+
+  </div><!-- /content -->
+
+  <div class="doc-footer">
+    不動産投資 立地調査ロボット システム設計書 v1.0 &nbsp;|&nbsp; MLIT 地理空間MCP × LINE Bot &nbsp;|&nbsp; 2026年5月
+  </div>
+
+</div><!-- /page -->
+</body>
+</html>
