@@ -90,32 +90,47 @@ def get_yield_context(
 # ──────────────────────────────────────
 
 def classify_yield(address: str, prop_type: str = "kubun") -> tuple[str, float]:
-    """住所文字列とと物件種別からエリア区分名と基準利回り（%）を返す。
+    """住所文字列と物件種別からエリア区分名と基準利回り（%）を返す。
 
     Args:
         address:   住所文字列
         prop_type: "kubun"（区分マンション）または "ittou"（一棟アパート・マンション）
 
-    yield_table.yaml の areas リストを上から順に評価し、
-    keywords のいずれかが住所に含まれていれば採用する。
+    yield_table.yaml の areas リストを2パスで評価する：
+      1st pass: required + keywords の厳格マッチ（「東京都江東区」など都道府県付き）
+      2nd pass: keywords のみのゆるいマッチ（「江東区」など都道府県省略入力に対応）
     マッチしない場合は default を返す。
     """
-    key = prop_type if prop_type in ("kubun", "ittou") else "kubun"
+    key   = prop_type if prop_type in ("kubun", "ittou") else "kubun"
+    areas = _YIELD_TABLE.get("areas", [])
 
-    for area in _YIELD_TABLE.get("areas", []):
+    def _pick(area: dict) -> tuple[str, float] | None:
+        if any(kw in address for kw in area.get("keywords", [])):
+            if key in area:
+                return area["label"], float(area[key])
+            return area["label"], float(area.get("base_yield", 7.5))
+        return None
+
+    # 1st pass: required も含めた厳格マッチ
+    for area in areas:
         required = area.get("required", "")
         if required and required not in address:
             continue
-        keywords = area.get("keywords", [])
-        if any(kw in address for kw in keywords):
-            # kubun / ittou キーが両方ある場合は種別に応じて選択
-            if key in area:
-                return area["label"], float(area[key])
-            # フォールバック（古い base_yield 形式にも対応）
-            return area["label"], float(area.get("base_yield", 7.5))
+        result = _pick(area)
+        if result:
+            return result
 
-    default = _YIELD_TABLE.get("default", {})
-    label = default.get("label", "その他地方")
+    # 2nd pass: required を無視したゆるいマッチ（都道府県名省略入力への対応）
+    for area in areas:
+        if not area.get("required", ""):
+            continue  # required なしエントリは 1st pass で評価済み
+        result = _pick(area)
+        if result:
+            logger.debug(f"classify_yield: 2nd-pass match '{address}' → {area['label']}")
+            return result
+
+    default   = _YIELD_TABLE.get("default", {})
+    label     = default.get("label", "その他地方")
     yield_val = default.get(key, default.get("base_yield", 7.5))
     return label, float(yield_val)
 
