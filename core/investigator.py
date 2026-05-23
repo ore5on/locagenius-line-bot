@@ -265,7 +265,7 @@ async def run_investigation(
                     maisoku_context = "\n\n【マイソク物件情報】\n" + "\n".join(lines)
 
             # ── Python確定値：想定利回り（同一住所で常に同じ値を渡す）──
-            yield_context = get_yield_context(address, maisoku_data)
+            yield_context = get_yield_context(address, maisoku_data, mode=mode)
 
             # ── Claude へ渡すプロンプトを組み立て ────────────────
             if coords:

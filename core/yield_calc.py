@@ -2,35 +2,80 @@
 LocaGenius — 収益指標の確定計算（Python側）
 
 Claude に委ねると再現性がないため、以下をPythonで確定計算する：
-  ・エリア別想定利回りの決定
+  ・エリア別想定利回りの決定（yield_table.yaml から読み込み）
   ・不動産取引事例からの中央値㎡単価算出
   ・推定月額賃料・収益還元価格の計算
 
 計算結果は build_income_block() の戻り値としてテキストブロックで返し、
 investigator.py が API 1 ツール結果に付加して Claude へ渡す。
 Claude はこのブロックの値をそのまま使用し、独自計算しない。
+
+利回りテーブルの更新：
+  コードを変更せず yield_table.yaml を直接編集するだけで反映される。
 """
 
 import json
 import logging
+import pathlib
 import statistics
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
+# ──────────────────────────────────────
+# yield_table.yaml の読み込み
+# ──────────────────────────────────────
 
-def get_yield_context(address: str, maisoku_data: dict | None = None) -> str:
+_YAML_PATH = pathlib.Path(__file__).parent.parent / "yield_table.yaml"
+
+def _load_yield_table() -> dict:
+    """yield_table.yaml を読み込んで返す。失敗時はフォールバック値を使用。"""
+    try:
+        with open(_YAML_PATH, encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except Exception as e:
+        logger.error(f"yield_table.yaml の読み込みに失敗しました: {e}")
+        # フォールバック（最低限の値）
+        return {
+            "areas": [],
+            "default": {"label": "その他地方", "base_yield": 7.5},
+            "corrections": {
+                "tower_mansion": {
+                    "keywords": ["タワー", "TOWER", "tower", "超高層"],
+                    "adjustment": -0.5,
+                }
+            },
+        }
+
+_YIELD_TABLE = _load_yield_table()
+
+
+def get_yield_context(
+    address: str,
+    maisoku_data: dict | None = None,
+    mode: str = "location",
+) -> str:
     """住所からエリア区分と想定利回りを確定し、Claude へ渡す指示テキストを返す。
 
     API 1 の取引事例有無に関係なく、プロンプト組み立て時点で呼び出す。
     これにより同じ住所では常に同じ利回りが使われる。
+
+    Args:
+        address:      住所文字列
+        maisoku_data: マイソク抽出データ（building_name を補正に使用）
+        mode:         investigation mode（"investment_ittou" のときは一棟利回りを使用）
     """
-    area_label, base_yield = classify_yield(address)
+    prop_type   = "ittou" if mode == "investment_ittou" else "kubun"
+    area_label, base_yield = classify_yield(address, prop_type)
     building_name          = (maisoku_data or {}).get("building_name", "") or address
     corrected_yield, corrs = apply_yield_corrections(base_yield, building_name)
 
+    type_label = "一棟" if prop_type == "ittou" else "区分"
     lines = [
         "【Python確定値：想定利回り】",
         f"エリア区分：{area_label}",
+        f"物件種別　：{type_label}",
         f"想定利回り：{corrected_yield}%",
     ]
     if corrs:
@@ -41,66 +86,38 @@ def get_yield_context(address: str, maisoku_data: dict | None = None) -> str:
 
 
 # ──────────────────────────────────────
-# エリア別基準利回りテーブル
+# エリア判定（yield_table.yaml 使用）
 # ──────────────────────────────────────
 
-def classify_yield(address: str) -> tuple[str, float]:
-    """住所文字列からエリア区分名と基準利回り（%）を返す。
+def classify_yield(address: str, prop_type: str = "kubun") -> tuple[str, float]:
+    """住所文字列とと物件種別からエリア区分名と基準利回り（%）を返す。
 
-    マッチしない場合は「その他地方」7.5% を返す。
+    Args:
+        address:   住所文字列
+        prop_type: "kubun"（区分マンション）または "ittou"（一棟アパート・マンション）
+
+    yield_table.yaml の areas リストを上から順に評価し、
+    keywords のいずれかが住所に含まれていれば採用する。
+    マッチしない場合は default を返す。
     """
-    a = address
+    key = prop_type if prop_type in ("kubun", "ittou") else "kubun"
 
-    # ── 東京都 ─────────────────────────────────────────────────
-    if "東京" in a:
-        if any(d in a for d in ["千代田区", "中央区", "港区"]):
-            return "都心3区", 3.5
-        if any(d in a for d in ["渋谷区", "新宿区", "目黒区", "品川区", "世田谷区", "杉並区"]):
-            return "東京城南・城西", 4.0
-        if any(d in a for d in [
-            "江東区", "墨田区", "江戸川区", "葛飾区", "荒川区",
-            "足立区", "北区", "板橋区", "練馬区", "大田区",
-            "文京区", "台東区", "豊島区", "中野区",
-        ]):
-            return "東京城東・城北", 4.5
-        # 東京都内でどの区にも当てはまらない → 23区外・多摩
-        return "東京23区外・多摩", 5.5
+    for area in _YIELD_TABLE.get("areas", []):
+        required = area.get("required", "")
+        if required and required not in address:
+            continue
+        keywords = area.get("keywords", [])
+        if any(kw in address for kw in keywords):
+            # kubun / ittou キーが両方ある場合は種別に応じて選択
+            if key in area:
+                return area["label"], float(area[key])
+            # フォールバック（古い base_yield 形式にも対応）
+            return area["label"], float(area.get("base_yield", 7.5))
 
-    # ── 神奈川県 ────────────────────────────────────────────────
-    if "横浜市" in a:
-        return "横浜市", 4.5
-    if "川崎市" in a:
-        return "川崎市", 4.5
-
-    # ── 埼玉・千葉 ─────────────────────────────────────────────
-    if "さいたま市" in a:
-        return "さいたま市", 5.0
-    if "千葉市" in a:
-        return "千葉市", 5.0
-
-    # ── 大阪府 ─────────────────────────────────────────────────
-    if "大阪" in a:
-        if "大阪市" in a and any(d in a for d in ["北区", "中央区", "浪速区", "西区", "天王寺区"]):
-            return "大阪市中心部", 4.5
-        if "大阪市" in a:
-            return "大阪市その他", 5.0
-
-    if "京都市" in a:
-        return "京都市", 5.0
-    if "神戸市" in a:
-        return "神戸市", 5.0
-
-    # ── 愛知県 ─────────────────────────────────────────────────
-    if "名古屋市" in a:
-        return "名古屋市", 5.0
-
-    # ── 政令指定都市 ────────────────────────────────────────────
-    for city in ["札幌市", "仙台市", "新潟市", "静岡市", "浜松市",
-                 "岡山市", "広島市", "北九州市", "福岡市", "熊本市", "堺市"]:
-        if city in a:
-            return "政令指定都市", 5.5
-
-    return "その他地方", 7.5
+    default = _YIELD_TABLE.get("default", {})
+    label = default.get("label", "その他地方")
+    yield_val = default.get(key, default.get("base_yield", 7.5))
+    return label, float(yield_val)
 
 
 def apply_yield_corrections(
@@ -108,7 +125,7 @@ def apply_yield_corrections(
     address: str,
     property_type: str = "",
 ) -> tuple[float, list[str]]:
-    """基準利回りにタワーマンション補正を適用する。
+    """基準利回りに補正を適用する（yield_table.yaml の corrections セクション参照）。
 
     Returns:
         (補正後利回り, 適用した補正のリスト)
@@ -116,10 +133,14 @@ def apply_yield_corrections(
     corrections: list[str] = []
     y = base_yield
 
-    tower_keywords = ["タワー", "TOWER", "tower", "超高層"]
-    if any(kw in address or kw in property_type for kw in tower_keywords):
-        y = round(y - 0.5, 1)
-        corrections.append("タワー補正 −0.5%")
+    corr_cfg = _YIELD_TABLE.get("corrections", {})
+    tower_cfg = corr_cfg.get("tower_mansion", {})
+    tower_kws = tower_cfg.get("keywords", ["タワー", "TOWER", "tower", "超高層"])
+    tower_adj = float(tower_cfg.get("adjustment", -0.5))
+
+    if any(kw in address or kw in property_type for kw in tower_kws):
+        y = round(y + tower_adj, 1)
+        corrections.append(f"タワー補正 {tower_adj:+.1f}%")
 
     return y, corrections
 
