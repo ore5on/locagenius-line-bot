@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir \
 COPY main.py .
 COPY system_prompt.txt .
 COPY yield_table.yaml .
+COPY api/ ./api/
 COPY core/ ./core/
 COPY modes/ ./modes/
 
