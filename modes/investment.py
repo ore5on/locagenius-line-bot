@@ -12,7 +12,7 @@ import asyncio
 import logging
 
 from core.config       import pending_type_confirm
-from core.geocoding    import geocode
+from core.geocoding    import geocode, reverse_geocode
 from core.overpass     import get_nearest_station, get_nearest_school, get_nearest_medical
 from core.investigator import run_investigation
 from core.maisoku      import extract_property, build_investigation_text, format_extracted_info
@@ -54,14 +54,19 @@ async def run_investment_core(extracted: dict) -> str:
         if coords is None:
             return "🔍 座標が見つかりませんでした。住所で再度お試しください。"
 
-        nearest_station, nearest_school, nearest_medical = await asyncio.gather(
-            get_nearest_station(coords[0], coords[1]),
-            get_nearest_school(coords[0], coords[1]),
-            get_nearest_medical(coords[0], coords[1]),
+        nearest_station, nearest_school, nearest_medical, resolved_address = (
+            await asyncio.gather(
+                get_nearest_station(coords[0], coords[1]),
+                get_nearest_school(coords[0], coords[1]),
+                get_nearest_medical(coords[0], coords[1]),
+                reverse_geocode(coords[0], coords[1]),
+            )
         )
+        # エリア判定には逆ジオコーディング住所を使う（建物名だとキーワード不一致で利回りが誤る）
+        address_for_yield = resolved_address or address
         mode = "investment_kubun" if prop_category == "区分" else "investment_ittou"
         return await run_investigation(
-            investigation_text, coords, nearest_station, nearest_school, nearest_medical,
+            address_for_yield, coords, nearest_station, nearest_school, nearest_medical,
             mode=mode, maisoku_data=extracted,
         )
     except Exception as e:

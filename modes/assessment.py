@@ -8,7 +8,7 @@ assess_and_push()          : LINE 専用ラッパー
 import asyncio
 import logging
 
-from core.geocoding    import geocode
+from core.geocoding    import geocode, reverse_geocode
 from core.overpass     import get_nearest_station, get_nearest_school, get_nearest_medical
 from core.investigator import run_investigation
 
@@ -47,13 +47,18 @@ async def run_assessment_analysis(building_name: str) -> str:
                 "住所が分かれば同じ精度で調査できます。"
             )
 
-        nearest_station, nearest_school, nearest_medical = await asyncio.gather(
-            get_nearest_station(coords[0], coords[1]),
-            get_nearest_school(coords[0], coords[1]),
-            get_nearest_medical(coords[0], coords[1]),
+        nearest_station, nearest_school, nearest_medical, resolved_address = (
+            await asyncio.gather(
+                get_nearest_station(coords[0], coords[1]),
+                get_nearest_school(coords[0], coords[1]),
+                get_nearest_medical(coords[0], coords[1]),
+                reverse_geocode(coords[0], coords[1]),
+            )
         )
+        # エリア判定には逆ジオコーディングで得た住所を使う（建物名だとキーワード不一致で利回りが誤る）
+        address_for_yield = resolved_address or building_name
         return await run_investigation(
-            building_name, coords, nearest_station, nearest_school, nearest_medical,
+            address_for_yield, coords, nearest_station, nearest_school, nearest_medical,
             mode="assessment",
         )
     except Exception as e:

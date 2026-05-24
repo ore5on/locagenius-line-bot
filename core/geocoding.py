@@ -182,6 +182,49 @@ async def geocode_nominatim(query: str) -> tuple[float, float] | None:
 
 
 # ──────────────────────────────────────
+# 逆ジオコーダー（緯度経度 → 住所文字列）
+# ──────────────────────────────────────
+async def reverse_geocode(lat: float, lon: float) -> str | None:
+    """緯度経度から住所文字列を取得する（Nominatim 逆ジオコーディング）。
+
+    エリア判定に使えるよう「東京都江東区…」形式の文字列を返す。
+    失敗時は None を返す。
+    """
+    url     = "https://nominatim.openstreetmap.org/reverse"
+    headers = {"User-Agent": "LocaGenius/1.0 (real-estate-bot)"}
+    params  = {
+        "lat":             lat,
+        "lon":             lon,
+        "format":          "json",
+        "accept-language": "ja",
+        "zoom":            18,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, params=params, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        # address フィールドから都道府県・市区町村を組み立てる
+        addr = data.get("address", {})
+        parts = [
+            addr.get("state", ""),        # 東京都
+            addr.get("city", ""),         # 江東区 など（政令市は county の場合あり）
+            addr.get("county", ""),       # 郡・区
+            addr.get("suburb", ""),       # 丁目レベル
+        ]
+        resolved = "".join(p for p in parts if p)
+        if not resolved:
+            # フォールバック：display_name の先頭を使用
+            resolved = data.get("display_name", "")
+        logger.info(f"reverse_geocode({lat}, {lon}) → '{resolved}'")
+        return resolved or None
+    except Exception as e:
+        logger.warning(f"reverse_geocode failed ({lat}, {lon}): {e}")
+        return None
+
+
+# ──────────────────────────────────────
 # 統合ジオコーダー
 # ──────────────────────────────────────
 async def geocode(address: str) -> tuple[float, float] | None:

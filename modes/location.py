@@ -8,7 +8,7 @@ investigate_and_push()   : LINE 専用ラッパー
 import asyncio
 import logging
 
-from core.geocoding    import geocode, extract_location_query
+from core.geocoding    import geocode, extract_location_query, reverse_geocode
 from core.overpass     import get_nearest_station, get_nearest_school, get_nearest_medical
 from core.investigator import run_investigation
 
@@ -59,16 +59,24 @@ async def run_location_analysis(address: str) -> str:
             return _NOT_FOUND_MSG
 
         if coords:
-            nearest_station, nearest_school, nearest_medical = await asyncio.gather(
+            tasks = [
                 get_nearest_station(coords[0], coords[1]),
                 get_nearest_school(coords[0], coords[1]),
                 get_nearest_medical(coords[0], coords[1]),
-            )
+            ]
+            nearest_station, nearest_school, nearest_medical = await asyncio.gather(*tasks)
+            # 建物名・駅名入力は住所キーワードを含まないため逆ジオコーディングで補完する
+            if is_building:
+                resolved = await reverse_geocode(coords[0], coords[1])
+                address_for_yield = resolved or address
+            else:
+                address_for_yield = address
         else:
             nearest_station = nearest_school = nearest_medical = None
+            address_for_yield = address
 
         return await run_investigation(
-            address, coords, nearest_station, nearest_school, nearest_medical,
+            address_for_yield, coords, nearest_station, nearest_school, nearest_medical,
             mode="location",
         )
     except Exception as e:
