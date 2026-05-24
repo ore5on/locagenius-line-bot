@@ -11,17 +11,12 @@ import re
 import logging
 
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
-from linebot.v3.webhooks import (
-    MessageEvent,
-    TextMessageContent,
-    ImageMessageContent,
-    FileMessageContent,
-)
-from linebot.v3.exceptions import InvalidSignatureError
+from fastapi.middleware.cors import CORSMiddleware
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from core.config import (
+    LINE_ENABLED,
     line_parser,
     LIBRARY_API_KEY,
     MCP_SERVER_PATH,
@@ -32,12 +27,23 @@ from core.config import (
 )
 from core.geocoding  import geocode, extract_location_query, is_property_info_only, looks_like_location
 from core.overpass   import get_nearest_station, get_nearest_school, get_nearest_medical
-from core.line_api   import reply, push
 
-from modes.location     import investigate_and_push
-from modes.assessment   import assess_and_push
-from modes.investment   import process_maisoku_image, process_maisoku_pdf, run_investment
-from modes.url_property import process_property_url
+# LINE SDK / LINE ラッパーは LINE_ENABLED の場合のみインポート
+if LINE_ENABLED:
+    from linebot.v3.webhooks import (
+        MessageEvent,
+        TextMessageContent,
+        ImageMessageContent,
+        FileMessageContent,
+    )
+    from linebot.v3.exceptions import InvalidSignatureError
+    from core.line_api   import reply, push
+    from modes.location     import investigate_and_push
+    from modes.assessment   import assess_and_push
+    from modes.investment   import process_maisoku_image, process_maisoku_pdf, run_investment
+    from modes.url_property import process_property_url
+
+from api.routers.analyze import router as analyze_router
 
 _URL_RE = re.compile(r'https?://\S+', re.IGNORECASE)
 
@@ -47,6 +53,28 @@ logger = logging.getLogger(__name__)
 # FastAPI アプリ
 # ──────────────────────────────────────
 app = FastAPI(title="立地調査ロボット")
+
+# ──────────────────────────────────────
+# CORS（PrimeAsset フロントエンドからのアクセスを許可）
+# ──────────────────────────────────────
+_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("PRIME_ASSET_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+# ──────────────────────────────────────
+# Web API ルーター（PrimeAsset 用）
+# ──────────────────────────────────────
+app.include_router(analyze_router)
 
 
 @app.get("/")
@@ -155,6 +183,13 @@ async def debug_info():
 @app.post("/webhook")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
     """LINE からの Webhook を受け取るエンドポイント"""
+
+    # LINE が無効の場合は 503 を返す
+    if not LINE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="LINE Bot is disabled. Set LINE_CHANNEL_SECRET and LINE_CHANNEL_ACCESS_TOKEN to enable.",
+        )
 
     # 1. 署名を検証
     signature = request.headers.get("X-Line-Signature", "")
